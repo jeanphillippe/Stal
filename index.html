@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stalbox — Find the perfect stall for your horse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #1C2B3A;
+  --navy-mid: #2c4158;
+  --sand: #F5F0E8;
+  --sand-dark: #EAE3D5;
+  --green: #2E7D32;
+  --green-light: #E8F5E9;
+  --text: #1C2B3A;
+  --text-mid: #4a5e6e;
+  --text-light: #7a8e9a;
+  --white: #ffffff;
+  --r: 10px;
+}
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', sans-serif; background: var(--sand); color: var(--text); font-size: 16px; line-height: 1.6; }
+
+/* NAV */
+nav { background: var(--navy); padding: 0 5vw; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 1000; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-text { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); letter-spacing: 0.03em; }
+.nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
+.nav-links a { color: rgba(255,255,255,0.65); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+.nav-links a:hover { color: var(--white); }
+.nav-cta { background: var(--green) !important; color: var(--white) !important; padding: 8px 18px; border-radius: var(--r); }
+
+/* HERO — split layout */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100vh - 64px);
+  background: var(--navy);
+}
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 72px 5vw 72px 6vw;
+  position: relative;
+  z-index: 2;
+}
+.hero-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-bottom: 20px; }
+.hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(36px, 4vw, 58px); font-weight: 700; color: var(--white); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px; }
+.hero h1 em { font-style: normal; color: #8fbcbb; }
+.hero-sub { font-size: 17px; color: rgba(255,255,255,0.6); line-height: 1.7; max-width: 420px; margin-bottom: 36px; }
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+.btn-primary { background: var(--green); color: var(--white); padding: 13px 26px; border-radius: var(--r); font-size: 15px; font-weight: 500; text-decoration: none; border: none; cursor: pointer; transition: background 0.2s; display: inline-block; }
+.btn-primary:hover { background: #256028; }
+.btn-ghost { background: transparent; color: rgba(255,255,255,0.75); padding: 13px 26px; border-radius: var(--r); font-size: 15px; font-weight: 500; text-decoration: none; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; transition: all 0.2s; display: inline-block; }
+.btn-ghost:hover { border-color: rgba(255,255,255,0.5); color: var(--white); }
+.hero-stats { display: flex; gap: 32px; }
+.hstat-num { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--white); }
+.hstat-label { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.05em; margin-top: 2px; }
+
+/* MAP PANEL */
+.hero-right { position: relative; }
+.map-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.map-search-bar {
+  background: rgba(28,43,58,0.92);
+  backdrop-filter: blur(4px);
+  padding: 14px 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-wrap: wrap;
+  z-index: 10;
+}
+.map-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 9px 13px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  color: var(--white);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+}
+.map-input::placeholder { color: rgba(255,255,255,0.4); }
+.map-input:focus { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); }
+.map-select {
+  padding: 9px 13px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  color: var(--white);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  cursor: pointer;
+}
+.map-select option { background: var(--navy); color: var(--white); }
+.map-btn { background: var(--green); color: var(--white); border: none; padding: 9px 18px; border-radius: 7px; font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif; cursor: pointer; white-space: nowrap; }
+.radius-row {
+  background: rgba(28,43,58,0.88);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.radius-row span { white-space: nowrap; }
+.radius-row input[type=range] { flex: 1; max-width: 200px; accent-color: var(--green); }
+.radius-val { color: rgba(255,255,255,0.8); font-weight: 500; min-width: 40px; }
+#map { flex: 1; }
+
+/* LEAFLET POPUP custom */
+.leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important; padding: 0 !important; overflow: hidden; }
+.leaflet-popup-content { margin: 0 !important; width: 220px !important; }
+.popup-card { padding: 14px; }
+.popup-badge { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; background: #E3F2FD; color: #1565C0; margin-bottom: 6px; }
+.popup-name { font-size: 14px; font-weight: 500; color: var(--navy); margin-bottom: 2px; }
+.popup-loc { font-size: 12px; color: var(--text-light); margin-bottom: 6px; }
+.popup-stars { font-size: 12px; color: #b8860b; margin-bottom: 10px; }
+.popup-link { display: block; text-align: center; background: var(--navy); color: var(--white); font-size: 12px; font-weight: 500; padding: 8px; text-decoration: none; border-radius: 6px; }
+.popup-link:hover { background: var(--navy-mid); }
+.popup-price-gate { font-size: 11px; color: var(--text-light); text-align: center; margin-top: 4px; }
+
+/* SECTION COMMON */
+.section { padding: 88px 5vw; }
+.section-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; }
+.section-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 3vw, 40px); font-weight: 700; color: var(--text); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 14px; max-width: 520px; }
+.section-sub { font-size: 17px; color: var(--text-mid); max-width: 480px; margin-bottom: 52px; line-height: 1.7; }
+
+/* HOW IT WORKS */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 24px; }
+.step { background: var(--white); border-radius: 14px; padding: 28px 24px; border: 1px solid rgba(28,43,58,0.08); }
+.step-num { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 700; color: var(--sand-dark); line-height: 1; margin-bottom: 14px; }
+.step h3 { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+.step p { font-size: 14px; color: var(--text-mid); line-height: 1.6; }
+
+/* LISTINGS PREVIEW */
+.listings-section { background: var(--sand-dark); padding: 88px 5vw; }
+.listings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; margin-top: 44px; }
+.listing-card { background: var(--white); border-radius: 14px; overflow: hidden; border: 1px solid rgba(28,43,58,0.08); transition: transform 0.18s; }
+.listing-card:hover { transform: translateY(-3px); }
+.listing-thumb { width: 100%; height: 190px; display: flex; align-items: center; justify-content: center; }
+.listing-body { padding: 18px; }
+.lbadges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.badge { font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 20px; background: var(--green-light); color: var(--green); }
+.badge-verified { background: #E3F2FD; color: #1565C0; }
+.lname { font-size: 16px; font-weight: 500; margin-bottom: 2px; }
+.lloc { font-size: 13px; color: var(--text-light); margin-bottom: 8px; }
+.lamenities { font-size: 12px; color: var(--text-mid); margin-bottom: 12px; }
+.lfooter { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(28,43,58,0.06); }
+.lstars { font-size: 13px; color: #b8860b; font-weight: 500; }
+.lprice-gate { font-size: 13px; color: var(--text-light); display: flex; align-items: center; gap: 5px; }
+.lprice-gate svg { flex-shrink: 0; }
+.lcontact-blur { font-size: 12px; color: var(--text-light); background: var(--sand); padding: 6px 10px; border-radius: 6px; margin-top: 8px; filter: blur(3.5px); user-select: none; pointer-events: none; }
+.llock { font-size: 12px; color: var(--text-mid); margin-top: 6px; display: flex; align-items: center; gap: 5px; }
+
+/* AMENITIES */
+.amenities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-top: 44px; }
+.amenity-item { background: var(--white); border: 1px solid rgba(28,43,58,0.08); border-radius: var(--r); padding: 18px 14px; text-align: center; }
+.amenity-icon { font-size: 26px; margin-bottom: 6px; }
+.amenity-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.amenity-note { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+
+/* REPUTATION */
+.rep-section { background: var(--navy); padding: 88px 5vw; }
+.rep-section .section-title { color: var(--white); }
+.rep-section .section-sub { color: rgba(255,255,255,0.55); }
+.rep-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 44px; }
+.rep-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 28px; }
+.rep-card-title { font-size: 17px; font-weight: 500; color: var(--white); margin-bottom: 6px; }
+.rep-card-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin-bottom: 20px; line-height: 1.6; }
+.rep-review { background: rgba(255,255,255,0.06); border-radius: var(--r); padding: 16px; }
+.rep-stars { color: #f0c040; font-size: 14px; margin-bottom: 6px; }
+.rep-text { font-size: 14px; color: rgba(255,255,255,0.65); line-height: 1.5; margin-bottom: 8px; }
+.rep-author { font-size: 12px; color: rgba(255,255,255,0.3); }
+
+/* EXPIRY NOTICE */
+.expiry-section { background: var(--sand-dark); padding: 0 5vw; }
+.expiry-banner { background: var(--white); border-left: 4px solid #c0392b; border-radius: 0 var(--r) var(--r) 0; padding: 22px 24px; display: flex; gap: 18px; align-items: flex-start; max-width: 740px; margin: 0 auto; }
+.expiry-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.expiry-title { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.expiry-body { font-size: 14px; color: var(--text-mid); line-height: 1.5; }
+.section-expiry { padding: 64px 5vw; }
+
+/* PRICING */
+.pricing-section { padding: 88px 5vw; text-align: center; }
+.pricing-card { display: inline-block; background: var(--white); border: 2px solid var(--navy); border-radius: 18px; padding: 44px 52px; max-width: 400px; width: 100%; }
+.pricing-label { font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mid); margin-bottom: 14px; }
+.pricing-amount { font-family: 'Playfair Display', serif; font-size: 60px; font-weight: 700; color: var(--navy); line-height: 1; margin-bottom: 4px; }
+.pricing-amount sup { font-size: 26px; vertical-align: top; margin-top: 10px; display: inline-block; }
+.pricing-period { font-size: 14px; color: var(--text-mid); margin-bottom: 28px; }
+.pricing-features { list-style: none; text-align: left; margin-bottom: 30px; }
+.pricing-features li { font-size: 14px; color: var(--text-mid); padding: 7px 0; border-bottom: 1px solid rgba(28,43,58,0.06); display: flex; align-items: center; gap: 10px; }
+.pricing-features li::before { content: ''; display: inline-block; width: 17px; height: 17px; background: var(--green); border-radius: 50%; flex-shrink: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"); background-size: 11px; background-position: center; background-repeat: no-repeat; }
+.pricing-note { font-size: 13px; color: var(--text-light); margin-top: 16px; }
+
+/* CTA */
+.cta-section { background: var(--sand-dark); padding: 88px 5vw; text-align: center; }
+.cta-section .section-title { max-width: 100%; margin: 0 auto 14px; }
+.cta-section .section-sub { margin: 0 auto 36px; }
+.cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-outline { background: transparent; color: var(--navy); padding: 13px 26px; border-radius: var(--r); font-size: 15px; font-weight: 500; text-decoration: none; border: 1.5px solid var(--navy); cursor: pointer; transition: all 0.2s; display: inline-block; }
+.btn-outline:hover { background: var(--navy); color: var(--white); }
+
+/* FOOTER */
+footer { background: var(--navy); padding: 48px 5vw 28px; }
+.footer-top { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; margin-bottom: 36px; }
+.footer-tagline { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 190px; line-height: 1.5; margin-top: 8px; }
+.footer-col h4 { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.6); margin-bottom: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.footer-col a { font-size: 13px; color: rgba(255,255,255,0.38); text-decoration: none; transition: color 0.2s; }
+.footer-col a:hover { color: rgba(255,255,255,0.8); }
+.footer-bottom { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.35); }
+.lang-switch { display: flex; gap: 6px; }
+.lang-btn { background: transparent; border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.4); padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+.lang-btn:hover, .lang-btn.active { border-color: rgba(255,255,255,0.45); color: var(--white); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-right { height: 55vw; min-height: 320px; position: relative; }
+  .rep-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  .pricing-card { padding: 32px 24px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
+      <path d="M14 66 L14 28 L44 28 L44 18 L62 18 L62 32 C62 32 66 34 66 42 C66 50 60 56 52 58 L52 66" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M44 38 C50 36 58 36 62 40" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="56" cy="30" r="2.5" fill="white"/>
+    </svg>
+    <span class="logo-text">Stalbox</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#listings">Browse</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#register" class="nav-cta">Get started</a></li>
+  </ul>
+</nav>
+
+<!-- HERO: left text + right live map -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Horse stabling marketplace</p>
+    <h1>Find the perfect stall for <em>your horse</em></h1>
+    <p class="hero-sub">Browse verified stabling establishments across the Netherlands. Live availability, honest reviews, and direct contact — no commission on your bookings.</p>
+    <div class="hero-actions">
+      <a href="#listings" class="btn-primary">Find a stable</a>
+      <a href="#establish" class="btn-ghost">List your establishment</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="hstat-num">240+</div>
+        <div class="hstat-label">Stables listed</div>
+      </div>
+      <div>
+        <div class="hstat-num">38</div>
+        <div class="hstat-label">Establishments</div>
+      </div>
+      <div>
+        <div class="hstat-num">4.8★</div>
+        <div class="hstat-label">Average rating</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="map-panel">
+      <div class="map-search-bar">
+        <input class="map-input" type="text" placeholder="City or address..." id="search-city">
+        <select class="map-select" id="search-province">
+          <option value="">— Province —</option>
+          <option value="Noord-Holland">Noord-Holland</option>
+          <option value="Zuid-Holland">Zuid-Holland</option>
+          <option value="Utrecht">Utrecht</option>
+          <option value="Gelderland">Gelderland</option>
+          <option value="Noord-Brabant">Noord-Brabant</option>
+          <option value="Overijssel">Overijssel</option>
+          <option value="Friesland">Friesland</option>
+          <option value="Groningen">Groningen</option>
+          <option value="Drenthe">Drenthe</option>
+          <option value="Flevoland">Flevoland</option>
+          <option value="Zeeland">Zeeland</option>
+          <option value="Limburg">Limburg</option>
+        </select>
+        <button class="map-btn" id="search-btn">Search</button>
+      </div>
+      <div class="radius-row" id="radius-row">
+        <span>Radius:</span>
+        <input type="range" min="5" max="100" value="25" step="5" id="radius-slider">
+        <span class="radius-val" id="radius-val">25 km</span>
+        <span style="color:rgba(255,255,255,0.3); font-size:11px; margin-left:6px;">— select province to override</span>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how-it-works">
+  <p class="section-eyebrow">How it works</p>
+  <h2 class="section-title">From search to stall, in minutes</h2>
+  <p class="section-sub">Stalbox connects horse owners with establishments directly. We handle discovery and trust — you handle the rest.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Search on the map</h3>
+      <p>Filter by location and radius, or select a province. Browse pins for every active location — click any to preview.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Register &amp; subscribe</h3>
+      <p>Create your account and subscribe for €3/month. Unlock prices, contact details, and booking requests.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Send a request</h3>
+      <p>Message the establishment with your horses, dates, and questions. They confirm directly — no platform cut.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <h3>Add to calendar</h3>
+      <p>Once your booking is approved, both parties get a one-click "Add to Google Calendar" button.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LISTINGS PREVIEW -->
+<section class="listings-section" id="listings">
+  <p class="section-eyebrow">Featured establishments</p>
+  <h2 class="section-title">Stables near Utrecht</h2>
+  <p class="section-sub" style="margin-bottom:0">Register to see prices and contact details.</p>
+  <div class="listings-grid">
+
+    <div class="listing-card">
+      <div class="listing-thumb" style="background: linear-gradient(135deg,#d4e8d0,#c0d8bb);">
+        <svg width="56" height="56" viewBox="0 0 80 80" fill="none" opacity="0.3"><path d="M14 66 L14 28 L44 28 L44 18 L62 18 L62 32 C62 32 66 34 66 42 C66 50 60 56 52 58 L52 66" stroke="#1C2B3A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="listing-body">
+        <div class="lbadges"><span class="badge badge-verified">Verified</span><span class="badge">Paddock</span><span class="badge">Feed included</span></div>
+        <div class="lname">De Groene Hoeve</div>
+        <div class="lloc">Zeist, Utrecht · 3 locations</div>
+        <div class="lamenities">Paddock · Feed included · Farrier</div>
+        <div class="lfooter">
+          <div class="lstars">★★★★★ 4.9 <span style="font-size:12px;color:#999">(28)</span></div>
+          <div class="lprice-gate">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Login for price
+          </div>
+        </div>
+        <div class="lcontact-blur">+31 6 12 34 56 78 · info@degroenehoe...</div>
+        <div class="llock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Register to view contact details</div>
+      </div>
+    </div>
+
+    <div class="listing-card">
+      <div class="listing-thumb" style="background: linear-gradient(135deg,#d4dce8,#bfcada);">
+        <svg width="56" height="56" viewBox="0 0 80 80" fill="none" opacity="0.28"><path d="M14 66 L14 28 L44 28 L44 18 L62 18 L62 32 C62 32 66 34 66 42 C66 50 60 56 52 58 L52 66" stroke="#1C2B3A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="listing-body">
+        <div class="lbadges"><span class="badge">Trailer parking</span><span class="badge">Farrier</span></div>
+        <div class="lname">Stal Nieuwland</div>
+        <div class="lloc">Amersfoort, Utrecht · 1 location</div>
+        <div class="lamenities">Trailer parking · Farrier · Paddock</div>
+        <div class="lfooter">
+          <div class="lstars">★★★★☆ 4.6 <span style="font-size:12px;color:#999">(14)</span></div>
+          <div class="lprice-gate">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Login for price
+          </div>
+        </div>
+        <div class="lcontact-blur">+31 6 98 76 54 32 · stal.nieuwland@...</div>
+        <div class="llock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Register to view contact details</div>
+      </div>
+    </div>
+
+    <div class="listing-card">
+      <div class="listing-thumb" style="background: linear-gradient(135deg,#e8dcd0,#d9ccbe);">
+        <svg width="56" height="56" viewBox="0 0 80 80" fill="none" opacity="0.28"><path d="M14 66 L14 28 L44 28 L44 18 L62 18 L62 32 C62 32 66 34 66 42 C66 50 60 56 52 58 L52 66" stroke="#1C2B3A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="listing-body">
+        <div class="lbadges"><span class="badge badge-verified">Verified</span><span class="badge">Feed included</span><span class="badge">Arena</span></div>
+        <div class="lname">Manège Het Woud</div>
+        <div class="lloc">Soest, Utrecht · 2 locations</div>
+        <div class="lamenities">Feed included · Riding arena · Washing area</div>
+        <div class="lfooter">
+          <div class="lstars">★★★★★ 5.0 <span style="font-size:12px;color:#999">(7)</span></div>
+          <div class="lprice-gate">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Login for price
+          </div>
+        </div>
+        <div class="lcontact-blur">+31 6 55 44 33 22 · info@hetw...</div>
+        <div class="llock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Register to view contact details</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- AMENITIES — dynamic note -->
+<section class="section">
+  <p class="section-eyebrow">What you can filter by</p>
+  <h2 class="section-title">Amenities, defined by each establishment</h2>
+  <p class="section-sub">Establishments tag their stables with the facilities they offer. New amenities are added as the platform grows.</p>
+  <div class="amenities-grid">
+    <div class="amenity-item"><div class="amenity-icon">🌿</div><div class="amenity-name">Paddock</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🐴</div><div class="amenity-name">Farrier service</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🌾</div><div class="amenity-name">Feed included</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🚛</div><div class="amenity-name">Trailer parking</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🏇</div><div class="amenity-name">Riding arena</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🌲</div><div class="amenity-name">Trail access</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🩺</div><div class="amenity-name">Vet on site</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🚿</div><div class="amenity-name">Washing area</div></div>
+    <div class="amenity-item"><div class="amenity-icon">🏠</div><div class="amenity-name">Indoor stable</div></div>
+    <div class="amenity-item"><div class="amenity-icon">⚡</div><div class="amenity-name">Electricity in stall</div></div>
+    <div class="amenity-item" style="border-style:dashed; opacity:0.5;"><div class="amenity-icon">＋</div><div class="amenity-name">Added by hosts</div><div class="amenity-note">Growing list</div></div>
+  </div>
+</section>
+
+<!-- REPUTATION -->
+<section class="rep-section">
+  <p class="section-eyebrow" style="color:rgba(255,255,255,0.4)">Trust, both ways</p>
+  <h2 class="section-title">Reputation that works for everyone</h2>
+  <p class="section-sub">After every confirmed stay, both parties leave a review. Neither sees the other's until both submit.</p>
+  <div class="rep-cols">
+    <div class="rep-card">
+      <div class="rep-card-title">Establishment reviews</div>
+      <div class="rep-card-sub">Horse owners rate facilities, responsiveness, and care. Verified badge shown separately from the community score.</div>
+      <div class="rep-review">
+        <div class="rep-stars">★★★★★</div>
+        <div class="rep-text">"Excellent facilities. The paddock was perfectly maintained and communication was smooth from day one."</div>
+        <div class="rep-author">— Lisa van der Berg, horse owner · Utrecht</div>
+      </div>
+    </div>
+    <div class="rep-card">
+      <div class="rep-card-title">Horse owner reviews</div>
+      <div class="rep-card-sub">Establishments rate whether the horse was healthy, whether rules were respected, and whether communication was reliable.</div>
+      <div class="rep-review">
+        <div class="rep-stars">★★★★★</div>
+        <div class="rep-text">"Thomas arrived on time, the horse was in great condition, and he followed our stable rules without being reminded."</div>
+        <div class="rep-author">— De Groene Hoeve · Zeist</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUBSCRIPTION EXPIRY INFO -->
+<section class="section-expiry" style="padding: 64px 5vw; background: var(--sand);">
+  <p class="section-eyebrow">Subscription</p>
+  <h2 class="section-title">Simple. Transparent. No surprises.</h2>
+  <p class="section-sub" style="margin-bottom: 28px;">€3/month gets you full access. If your subscription lapses, access stops immediately — you'll receive an email the moment it expires. Renew anytime to restore full access instantly. Your data and history are always preserved.</p>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; max-width:680px;">
+    <div style="background:var(--white); border-radius:var(--r); padding:18px 20px; flex:1; min-width:200px; border:1px solid rgba(28,43,58,0.08);">
+      <div style="font-size:13px;color:var(--text-light);margin-bottom:4px;">On expiry</div>
+      <div style="font-size:14px;font-weight:500;color:var(--text);">Immediate lockout + email notification</div>
+    </div>
+    <div style="background:var(--white); border-radius:var(--r); padding:18px 20px; flex:1; min-width:200px; border:1px solid rgba(28,43,58,0.08);">
+      <div style="font-size:13px;color:var(--text-light);margin-bottom:4px;">Your data</div>
+      <div style="font-size:14px;font-weight:500;color:var(--text);">Always retained — nothing is deleted</div>
+    </div>
+    <div style="background:var(--white); border-radius:var(--r); padding:18px 20px; flex:1; min-width:200px; border:1px solid rgba(28,43,58,0.08);">
+      <div style="font-size:13px;color:var(--text-light);margin-bottom:4px;">On renewal</div>
+      <div style="font-size:14px;font-weight:500;color:var(--text);">Full access restored instantly</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <p class="section-eyebrow" style="margin-bottom:28px">Simple, honest pricing</p>
+  <div class="pricing-card">
+    <div class="pricing-label">One plan for everyone</div>
+    <div class="pricing-amount"><sup>€</sup>3</div>
+    <div class="pricing-period">per month · horse owners and establishments</div>
+    <ul class="pricing-features">
+      <li>Full prices visible on all listings</li>
+      <li>Full contact details unlocked</li>
+      <li>Unlimited booking requests</li>
+      <li>Google Calendar integration</li>
+      <li>Bilateral reputation profile</li>
+      <li>No commission on your transactions</li>
+    </ul>
+    <a href="#register" class="btn-primary" style="width:100%;text-align:center;display:block;">Get started for €3/month</a>
+    <p class="pricing-note">No contracts. Cancel anytime. Stalbox never touches your transaction.</p>
+  </div>
+</section>
+
+<!-- CTA FOR ESTABLISHMENTS -->
+<section class="cta-section" id="establish">
+  <p class="section-eyebrow">For establishments</p>
+  <h2 class="section-title" style="max-width:540px;margin:0 auto 14px">List your stables. Reach horse owners across the Netherlands.</h2>
+  <p class="section-sub">Upload photos, set availability per location, define your own amenities, and apply for the Verified badge. One flat fee — no hidden costs, no commission.</p>
+  <div class="cta-buttons">
+    <a href="#register" class="btn-primary">List your establishment</a>
+    <a href="#how-it-works" class="btn-outline">Learn more</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-top">
+    <div class="footer-col">
+      <span class="logo-text" style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:white;display:block;margin-bottom:8px;">Stalbox</span>
+      <p class="footer-tagline">The horse stabling marketplace. Netherlands launch 2026.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <ul>
+        <li><a href="#">How it works</a></li>
+        <li><a href="#">Browse stables</a></li>
+        <li><a href="#">List your establishment</a></li>
+        <li><a href="#">Pricing</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About Stalbox</a></li>
+        <li><a href="#">Contact</a></li>
+        <li><a href="#">Privacy policy</a></li>
+        <li><a href="#">Terms of service</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Support</h4>
+      <ul>
+        <li><a href="#">Help center</a></li>
+        <li><a href="#">Safety &amp; trust</a></li>
+        <li><a href="#">Verified badge</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Stalbox. All rights reserved.</span>
+    <div class="lang-switch">
+      <button class="lang-btn active">EN</button>
+      <button class="lang-btn">NL</button>
+      <button class="lang-btn">DE</button>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var locations = [
+  { name: "De Groene Hoeve", loc: "Zeist", province: "Utrecht", lat: 52.088, lng: 5.233, stars: "4.9", reviews: 28, verified: true, amenities: ["Paddock","Feed included","Farrier"] },
+  { name: "De Groene Hoeve — Driebergen", loc: "Driebergen", province: "Utrecht", lat: 52.055, lng: 5.291, stars: "4.9", reviews: 12, verified: true, amenities: ["Paddock","Trailer parking"] },
+  { name: "Stal Nieuwland", loc: "Amersfoort", province: "Utrecht", lat: 52.156, lng: 5.387, stars: "4.6", reviews: 14, verified: false, amenities: ["Trailer parking","Farrier","Paddock"] },
+  { name: "Manège Het Woud", loc: "Soest", province: "Utrecht", lat: 52.175, lng: 5.303, stars: "5.0", reviews: 7, verified: true, amenities: ["Feed included","Arena","Washing"] },
+  { name: "Manège Het Woud — Baarn", loc: "Baarn", province: "Utrecht", lat: 52.211, lng: 5.287, stars: "4.8", reviews: 4, verified: true, amenities: ["Feed included","Arena"] },
+  { name: "Stal De Beuk", loc: "Woerden", province: "Utrecht", lat: 52.088, lng: 4.888, stars: "4.4", reviews: 9, verified: false, amenities: ["Paddock","Vet on site"] },
+  { name: "Haarlemmerhout Stables", loc: "Haarlem", province: "Noord-Holland", lat: 52.381, lng: 4.638, stars: "4.7", reviews: 18, verified: true, amenities: ["Trailer parking","Feed included"] },
+  { name: "Rijsterhout Stabling", loc: "Leiden", province: "Zuid-Holland", lat: 52.159, lng: 4.491, stars: "4.5", reviews: 11, verified: false, amenities: ["Paddock","Farrier"] },
+  { name: "Stal Geldersehoeve", loc: "Arnhem", province: "Gelderland", lat: 51.985, lng: 5.898, stars: "4.8", reviews: 22, verified: true, amenities: ["Trails","Paddock","Feed included"] }
+];
+
+var map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([52.15, 5.1], 8);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+  maxZoom: 18
+}).addTo(map);
+
+var verifiedIcon = L.divIcon({
+  className: '',
+  html: '<div style="background:#1C2B3A;border:2px solid #2E7D32;width:14px;height:14px;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.35)"></div>',
+  iconSize: [14, 14], iconAnchor: [7, 7]
+});
+
+var normalIcon = L.divIcon({
+  className: '',
+  html: '<div style="background:#1C2B3A;border:2px solid rgba(255,255,255,0.45);width:12px;height:12px;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>',
+  iconSize: [12, 12], iconAnchor: [6, 6]
+});
+
+var markers = [];
+var radiusCircle = null;
+var activeCenter = null;
+
+function buildPopup(d) {
+  var badge = d.verified ? '<span class="popup-badge">Verified</span>' : '';
+  return '<div class="popup-card">' +
+    badge +
+    '<div class="popup-name">' + d.name + '</div>' +
+    '<div class="popup-loc">' + d.loc + ', ' + d.province + '</div>' +
+    '<div class="popup-stars">★ ' + d.stars + ' (' + d.reviews + ' reviews)</div>' +
+    '<a href="#register" class="popup-link">View establishment</a>' +
+    '<div class="popup-price-gate">🔒 Login to see pricing</div>' +
+    '</div>';
+}
+
+function renderMarkers(filtered) {
+  markers.forEach(function(m) { map.removeLayer(m.marker); });
+  markers = [];
+  filtered.forEach(function(d) {
+    var m = L.marker([d.lat, d.lng], { icon: d.verified ? verifiedIcon : normalIcon })
+      .addTo(map)
+      .bindPopup(buildPopup(d), { maxWidth: 240 });
+    markers.push({ marker: m, data: d });
+  });
+}
+
+renderMarkers(locations);
+
+var radiusSlider = document.getElementById('radius-slider');
+var radiusVal = document.getElementById('radius-val');
+var provinceSelect = document.getElementById('search-province');
+var radiusRow = document.getElementById('radius-row');
+
+radiusSlider.addEventListener('input', function() {
+  radiusVal.textContent = this.value + ' km';
+  if (activeCenter && !provinceSelect.value) {
+    drawRadius(activeCenter, parseInt(this.value));
+    filterByRadius(activeCenter, parseInt(this.value));
+  }
+});
+
+provinceSelect.addEventListener('change', function() {
+  if (this.value) {
+    radiusRow.style.opacity = '0.4';
+    radiusRow.style.pointerEvents = 'none';
+    if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+    var filtered = locations.filter(function(d) { return d.province === provinceSelect.value; });
+    renderMarkers(filtered);
+    if (filtered.length > 0) {
+      var bounds = L.latLngBounds(filtered.map(function(d) { return [d.lat, d.lng]; }));
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  } else {
+    radiusRow.style.opacity = '1';
+    radiusRow.style.pointerEvents = 'auto';
+    renderMarkers(locations);
+    map.setView([52.15, 5.1], 8);
+  }
+});
+
+function drawRadius(center, km) {
+  if (radiusCircle) map.removeLayer(radiusCircle);
+  radiusCircle = L.circle(center, {
+    radius: km * 1000,
+    color: '#2E7D32',
+    fillColor: '#2E7D32',
+    fillOpacity: 0.06,
+    weight: 1.5,
+    dashArray: '4 4'
+  }).addTo(map);
+}
+
+function filterByRadius(center, km) {
+  var filtered = locations.filter(function(d) {
+    var dist = map.distance(center, L.latLng(d.lat, d.lng)) / 1000;
+    return dist <= km;
+  });
+  renderMarkers(filtered);
+}
+
+document.getElementById('search-btn').addEventListener('click', function() {
+  var city = document.getElementById('search-city').value.trim();
+  if (!city) return;
+  provinceSelect.value = '';
+  radiusRow.style.opacity = '1';
+  radiusRow.style.pointerEvents = 'auto';
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(city + ', Netherlands') + '&limit=1';
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (data && data.length > 0) {
+      var lat = parseFloat(data[0].lat);
+      var lng = parseFloat(data[0].lon);
+      activeCenter = [lat, lng];
+      var km = parseInt(radiusSlider.value);
+      map.setView(activeCenter, 11);
+      drawRadius(activeCenter, km);
+      filterByRadius(activeCenter, km);
+    }
+  }).catch(function() {});
+});
+
+document.getElementById('search-city').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('search-btn').click();
+});
+
+document.querySelectorAll('.lang-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
